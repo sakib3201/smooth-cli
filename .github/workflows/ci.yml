@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main feature/implement]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with: { version: v1.64, args: --timeout=5m }
+
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: Unit tests with race detector
+        run: go test -race -count=1 -timeout=60s ./...
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: Integration tests
+        run: go test -tags=integration -timeout=120s -v ./...
+
+  build:
+    needs: [lint, test]
+    strategy:
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: windows, goarch: amd64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: go build -o bin/smooth-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/smooth
+
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: Attention detector corpus check
+        run: go test -run TestDetector_CorpusCheck -v ./internal/attention/...
+
+  goroutine-leak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
+      - name: Goroutine leak checks
+        run: go test -run TestBus_NoGoroutineLeak -v ./internal/events/...
