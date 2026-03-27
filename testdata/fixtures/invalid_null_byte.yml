@@ -1,0 +1,6 @@
+# This fixture is intentionally left as a placeholder.
+# Null byte injection is done programmatically in tests via []byte manipulation.
+version: 1
+processes:
+  api:
+    command: "echo hello"
