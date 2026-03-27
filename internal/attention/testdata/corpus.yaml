@@ -1,0 +1,55 @@
+entries:
+  - line: "Do you want to continue? (y/n)"
+    attention: true
+    expected_pattern: "(?i)\\(y/n\\)"
+  - line: "Overwrite ./src/index.ts? (y/n)"
+    attention: true
+  - line: "[yes/no] Delete all local changes?"
+    attention: true
+  - line: "Error: ECONNREFUSED 127.0.0.1:5432"
+    attention: true
+    expected_pattern: "(?i)(error|FATAL|panic|CRITICAL):"
+  - line: "FATAL: database 'myapp' does not exist"
+    attention: true
+  - line: "panic: runtime error: index out of range [3] with length 3"
+    attention: true
+  - line: "password: "
+    attention: true
+  - line: "Enter your API key: "
+    attention: true
+  - line: "Are you sure you want to delete this branch?"
+    attention: true
+  - line: "Permission denied (publickey,password)"
+    attention: true
+  - line: "waiting for user input..."
+    attention: true
+  - line: "[2024-01-15 10:23:44] CRITICAL: disk usage at 98%"
+    attention: true
+  - line: "\x1b]9;Process needs attention\x07"
+    attention: true
+  - line: "Server listening on :3000"
+    attention: false
+  - line: "Compiled 342 modules in 2.1s"
+    attention: false
+  - line: "GET /api/users 200 OK 12ms"
+    attention: false
+  - line: "Successfully pushed to origin/main"
+    attention: false
+  - line: "Running tests..."
+    attention: false
+  - line: "Build complete. Output: ./dist/app"
+    attention: false
+  - line: "Connected to Redis at localhost:6379"
+    attention: false
+  - line: "Watching for file changes..."
+    attention: false
+  - line: "✓ All 42 tests passed"
+    attention: false
+  - line: "npm warn deprecated package@1.0.0"
+    attention: false
+  - line: ""
+    attention: false
+  - line: "   "
+    attention: false
+  - line: "\n\n"
+    attention: false
