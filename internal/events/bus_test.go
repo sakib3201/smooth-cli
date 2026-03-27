@@ -124,9 +124,6 @@ func TestBus_DropsOldestEvent_WhenBusBufferFull(t *testing.T) {
 	blocked.Store(false)
 	close(blocker)
 
-	// Give fanOut goroutine time to process
-	time.Sleep(50 * time.Millisecond)
-
 	assert.Greater(t, b.DroppedCount(), int64(0), "DroppedCount should be > 0 when bus buffer overflows")
 }
 
@@ -137,22 +134,16 @@ func TestBus_UnsubscribeStops_DeliveryToThatSubscriber(t *testing.T) {
 	ch, unsub := b.Subscribe()
 	unsub()
 
-	b.Publish(newTestEvent(events.KindLogLine))
-
-	// Drain any event that may have been in-flight before unsub
-	time.Sleep(50 * time.Millisecond)
+	// Channel should be closed after unsub
 	select {
-	case <-ch:
-		// an event that was already in-flight before unsub is acceptable
-		// check there are no more
-		select {
-		case <-ch:
-			t.Fatal("received event after unsubscribe")
-		default:
-		}
-	default:
-		// no event received — correct
+	case _, ok := <-ch:
+		assert.False(t, ok, "channel should be closed after unsub")
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("channel not closed within 50ms after unsub")
 	}
+
+	// Publishing after unsub should not panic or deliver to the unsubscribed channel
+	b.Publish(events.NewEvent(events.KindLogLine, nil))
 }
 
 func TestBus_Close_ClosesAllSubscriberChannels(t *testing.T) {
@@ -262,7 +253,4 @@ func TestBus_NoGoroutineLeak_AfterClose(t *testing.T) {
 	// Drain closed channel
 	for range ch {
 	}
-
-	// Give goroutine time to exit
-	time.Sleep(50 * time.Millisecond)
 }

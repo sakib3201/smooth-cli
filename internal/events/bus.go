@@ -110,7 +110,12 @@ const (
 )
 
 type subscriber struct {
-	ch chan Event
+	ch        chan Event
+	closeOnce sync.Once
+}
+
+func (s *subscriber) close() {
+	s.closeOnce.Do(func() { close(s.ch) })
 }
 
 // bus is the concrete Bus implementation.
@@ -157,13 +162,14 @@ func (b *bus) Subscribe() (<-chan Event, func()) {
 	b.mu.Unlock()
 	unsub := func() {
 		b.mu.Lock()
-		defer b.mu.Unlock()
 		for i, sub := range b.subs {
 			if sub == s {
 				b.subs = append(b.subs[:i], b.subs[i+1:]...)
 				break
 			}
 		}
+		b.mu.Unlock()
+		s.close() // close after removing from subs so fanOut won't send to it
 	}
 	return s.ch, unsub
 }
@@ -184,7 +190,7 @@ func (b *bus) fanOut() {
 		case <-b.done:
 			b.mu.RLock()
 			for _, s := range b.subs {
-				close(s.ch)
+				s.close()
 			}
 			b.mu.RUnlock()
 			return
@@ -200,7 +206,7 @@ func (b *bus) fanOut() {
 				select {
 				case s.ch <- e:
 				default:
-					// slow subscriber — skip
+					b.dropped.Add(1) // slow subscriber — increment drop counter
 				}
 			}
 			b.mu.RUnlock()
