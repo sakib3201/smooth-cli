@@ -286,6 +286,9 @@ func applySettingsDefaults(r rawSettings) Settings {
 
 // Diff computes what changed between two configs.
 func Diff(old, new *SmoothConfig) DiffResult {
+	if old == nil || new == nil {
+		return DiffResult{}
+	}
 	d := DiffResult{}
 	for name := range new.Processes {
 		if _, exists := old.Processes[name]; !exists {

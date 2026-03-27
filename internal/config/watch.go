@@ -24,7 +24,8 @@ func Watch(ctx context.Context, path string, current *SmoothConfig, onChange fun
 	}
 	go func() {
 		defer w.Close()
-		prev := current
+		prevVal := *current
+		prev := &prevVal
 		for {
 			select {
 			case <-ctx.Done():
@@ -63,8 +64,8 @@ func Watch(ctx context.Context, path string, current *SmoothConfig, onChange fun
 					continue
 				}
 				diff := Diff(prev, next)
-				prev = next
 				onChange(next, diff)
+				prev = next
 			case err, ok := <-w.Errors:
 				if !ok {
 					return

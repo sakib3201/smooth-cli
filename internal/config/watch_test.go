@@ -94,7 +94,8 @@ func TestWatch_DoesNotCallOnChange_WhenNewConfigIsInvalid(t *testing.T) {
 		t.Fatal("errCh did not receive error within 500ms")
 	}
 
-	// Ensure onChange was NOT called
+	// Safe to check synchronously: errCh send and onChange guard happen sequentially
+	// in the same watcher goroutine, so if errCh has fired, onChange was not called.
 	select {
 	case <-called:
 		t.Fatal("onChange should not have been called for invalid config")
