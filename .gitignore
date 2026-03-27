@@ -26,7 +26,18 @@ go.work.sum
 
 # env file
 .env
+node_modules
+package-lock.json
+package.json
 
-# Editor/IDE
+# Git worktrees
+.worktrees/
+
+# Editor/IDE/AI files
+.claude
+.opencode
+ai-docs/
+CLAUDE.md
+AGENTS.md
 # .idea/
 # .vscode/
