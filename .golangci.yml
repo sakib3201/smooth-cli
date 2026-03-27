@@ -1,0 +1,28 @@
+linters:
+  enable:
+    - errcheck        # every error must be checked
+    - gosimple        # simplify expressions
+    - govet           # go vet checks
+    - ineffassign     # detect unused assignments
+    - staticcheck     # comprehensive static analysis
+    - unused          # detect unused code
+    - gofmt           # formatting (fail if not formatted)
+    - goimports       # import ordering
+    - misspell        # catch typos in comments/strings
+    - godot           # comments must end with period
+    - exhaustive      # switch on enums must cover all cases
+    - wrapcheck       # errors from external packages must be wrapped
+    - noctx           # http.Request must use context
+    - bodyclose       # http response body must be closed
+    - contextcheck    # context must be propagated correctly
+    - nilnil          # no nil+nil returns
+    - gocritic        # opinionated Go style checks
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true   # t.(T) must be checked
+  exhaustive:
+    default-signifies-exhaustive: false
+  wrapcheck:
+    ignorePackageGlobs:
+      - "github.com/smoothcli/smooth-cli/internal/*"

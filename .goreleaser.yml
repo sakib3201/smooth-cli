@@ -1,0 +1,50 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: smooth
+    main: ./cmd/smooth
+    binary: smooth
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildDate={{.Date}}
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - { goos: windows, goarch: arm64 }
+
+archives:
+  - format: tar.gz
+    format_overrides:
+      - { goos: windows, format: zip }
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - name: smooth
+    repository:
+      owner: smoothcli
+      name: homebrew-tap
+    homepage: https://smoothcli.dev
+    description: "Open-source terminal dashboard for AI coding agents"
+    license: AGPL-3.0
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: smoothcli
+    name: smooth-cli
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ['^docs:', '^test:', '^ci:', Merge pull request]

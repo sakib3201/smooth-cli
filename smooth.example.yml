@@ -1,0 +1,39 @@
+version: 1
+project: my-project   # display name shown in the TUI header; defaults to cwd basename
+
+processes:
+  api:
+    command: "go run ./cmd/api"
+    cwd: "./api"
+    env:
+      PORT: "3000"
+      DB_URL: "${DATABASE_URL}"   # ${VAR} interpolated from environment at startup
+    auto_restart: true
+    max_restarts: 5
+    restart_delay: 2s             # base for exponential backoff: 2s, 4s, 8s … 30s cap
+    group: backend
+    attention:
+      patterns:
+        - "(?i)custom error pattern"   # merged with built-in defaults
+
+  worker:
+    command: "node worker.js"
+    cwd: "./worker"
+    env:
+      REDIS_URL: "redis://localhost:6379"
+    auto_restart: true
+    group: backend
+
+  frontend:
+    command: "npm run dev"
+    cwd: "./frontend"
+    group: frontend
+
+settings:
+  log_buffer_lines: 10000    # lines kept in memory per process
+  persist_logs: true          # also write to SQLite for cross-session search
+  notifications: true         # OS desktop notifications on attention events
+  permission_gating: true     # require consent before applying dangerous config changes
+  mcp:
+    enabled: true
+    dangerous_tools: false    # set true to allow restart_process / run_command via MCP
