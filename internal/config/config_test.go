@@ -214,3 +214,31 @@ func TestDiff_ReturnsEmptyDiff_WhenConfigsAreIdentical(t *testing.T) {
 	assert.Empty(t, d.Removed)
 	assert.Empty(t, d.Modified)
 }
+
+func TestParseYAML_InterpolatesEnvVars_InCwdField(t *testing.T) {
+	t.Setenv("MY_CWD", "/tmp/project")
+	data := []byte(`version: 1
+processes:
+  api:
+    command: "echo hello"
+    cwd: "${MY_CWD}"
+`)
+	cfg, err := config.ParseYAML(data)
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/project", cfg.Processes["api"].Cwd)
+}
+
+func TestDiff_IsOrderIndependent(t *testing.T) {
+	old := &config.SmoothConfig{Processes: map[string]config.ProcessConfig{
+		"api":    {Command: "echo"},
+		"worker": {Command: "node"},
+	}}
+	new := &config.SmoothConfig{Processes: map[string]config.ProcessConfig{
+		"api":      {Command: "echo"},
+		"frontend": {Command: "npm run dev"},
+	}}
+	d := config.Diff(old, new)
+	assert.ElementsMatch(t, []string{"frontend"}, d.Added)
+	assert.ElementsMatch(t, []string{"worker"}, d.Removed)
+	assert.Empty(t, d.Modified)
+}
