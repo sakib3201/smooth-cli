@@ -16,6 +16,7 @@ import (
 	"github.com/smoothcli/smooth-cli/internal/logstore"
 	"github.com/smoothcli/smooth-cli/internal/store"
 	"github.com/smoothcli/smooth-cli/internal/supervisor"
+	"github.com/smoothcli/smooth-cli/internal/terminal"
 	"github.com/smoothcli/smooth-cli/internal/tui"
 )
 
@@ -68,6 +69,12 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	for _, pc := range cfg.Processes {
+		if err := sup.Start(context.Background(), pc.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "start %s: %v\n", pc.Name, err)
+		}
+	}
+
 	apiDeps := api.Deps{
 		Supervisor: &supervisorAdapter{sup: sup},
 		LogStore:   &logStoreAdapter{store: logDB},
@@ -81,13 +88,13 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go func() {
+	go safeGoroutine("api", func() {
 		if portFlag != 0 {
 			apiServer.Start(ctx)
 		}
-	}()
+	})
 
-	go func() {
+	go safeGoroutine("state-persist", func() {
 		ch, unsub := bus.Subscribe()
 		defer unsub()
 		for ev := range ch {
@@ -97,13 +104,44 @@ func run(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-	}()
+	})
 
-	tuiModel := tui.New()
+	tuiModel := tui.New(tui.Deps{Sup: sup})
 	tuiModel = tuiModel.InitProcesses(sup.States())
 
-	program := tea.NewProgram(tuiModel)
-	if err := program.Start(); err != nil {
+	program := tea.NewProgram(tuiModel, tea.WithAltScreen())
+
+	go safeGoroutine("bus-relay", func() {
+		ch, unsub := bus.Subscribe()
+		defer unsub()
+		for ev := range ch {
+			switch ev.Kind {
+			case events.KindProcessStarted, events.KindProcessStopped,
+				events.KindProcessCrashed, events.KindProcessRestarting,
+				events.KindResourceSample:
+				if pe, ok := ev.Payload().(events.ProcessEvent); ok {
+					program.Send(tui.ProcessUpdateMsg(pe.State))
+				}
+			case events.KindLogLine:
+				if le, ok := ev.Payload().(events.LogEvent); ok {
+					program.Send(tui.LogLineMsg(le.Line))
+				}
+			case events.KindAttentionNeeded:
+				if ae, ok := ev.Payload().(events.AttentionEvent); ok {
+					program.Send(tui.AttentionMsg(ae.Event))
+				}
+			}
+		}
+	})
+
+	go safeGoroutine("shell", func() {
+		shellRWC := startShell()
+		if shellRWC != nil {
+			program.Send(tui.ShellReadyMsg{Shell: shellRWC})
+		}
+	})
+
+	if _, err := program.Run(); err != nil {
 		cancel()
 		return err
 	}
@@ -112,6 +150,15 @@ func run(cmd *cobra.Command, args []string) error {
 	bus.Close()
 
 	return nil
+}
+
+func safeGoroutine(name string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "[smooth] goroutine %q panic: %v\n", name, r)
+		}
+	}()
+	fn()
 }
 
 type supervisorAdapter struct {
@@ -195,6 +242,21 @@ func loadConfig(path string) (*config.SmoothConfig, error) {
 		return config.ParseTOML(data)
 	}
 	return config.ParseYAML(data)
+}
+
+func startShell() (shell *terminal.PtyProcess) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "shell: conpty unavailable: %v\n", r)
+			shell = nil
+		}
+	}()
+	p, err := terminal.Start("cmd.exe")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "shell: %v\n", err)
+		return nil
+	}
+	return p
 }
 
 func main() {

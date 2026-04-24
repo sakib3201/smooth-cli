@@ -31,28 +31,70 @@ Smooth CLI is a **terminal user interface (TUI)** for spawning, supervising, and
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install smoothcli/tap/smooth
+```
+
 ### Pre-built Binaries
 
-Download from [Releases](https://github.com/smoothcli/smooth-cli/releases).
+Download the latest release for your platform from [Releases](https://github.com/smoothcli/smooth-cli/releases):
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `smooth_<version>_darwin_arm64.tar.gz` |
+| macOS (Intel) | `smooth_<version>_darwin_amd64.tar.gz` |
+| Linux (x86-64) | `smooth_<version>_linux_amd64.tar.gz` |
+| Windows (x86-64) | `smooth_<version>_windows_amd64.zip` |
+
+Extract the archive and move the binary somewhere on your `PATH`:
+
+```bash
+# macOS / Linux
+tar -xzf smooth_*.tar.gz
+sudo mv smooth /usr/local/bin/
+
+# Windows (PowerShell) — move to a directory already on PATH
+Expand-Archive smooth_*.zip .
+Move-Item smooth.exe "$env:USERPROFILE\bin\smooth.exe"
+```
+
+Verify checksums against `checksums.txt` before use.
 
 ### Build from Source
 
+Requires **Go 1.23+**. No CGO — uses the pure-Go SQLite driver.
+
 ```bash
-# Clone the repository
 git clone https://github.com/smoothcli/smooth-cli.git
 cd smooth-cli
-
-# Build
 make build
-
-# The binary will be at bin/smooth
-./bin/smooth --help
 ```
 
-### Prerequisites
+The Makefile auto-detects Windows and produces `bin/smooth.exe`; on macOS/Linux it produces `bin/smooth`.
 
-- **Go 1.23+** — For building from source
-- **No CGO required** — Uses pure-Go SQLite driver (`modernc.org/sqlite`)
+Add the `bin/` directory to your PATH so you can call `smooth` from anywhere:
+
+```bash
+# macOS / Linux
+export PATH="$PATH:$PWD/bin"
+
+# Windows (PowerShell)
+$env:PATH += ";$PWD\bin"
+```
+
+Or skip the build step entirely and run directly:
+
+```bash
+go run ./cmd/smooth --config smooth.yml
+```
+
+Or install to `$GOPATH/bin` (already on PATH after a standard Go install):
+
+```bash
+go install github.com/smoothcli/smooth-cli/cmd/smooth@latest
+```
 
 ---
 
@@ -60,7 +102,13 @@ make build
 
 ### 1. Create a Configuration File
 
-Create `smooth.yml` in your project directory:
+Create `smooth.yml` in your project directory (or copy the provided example):
+
+```bash
+cp smooth.example.yml smooth.yml   # then edit to suit your processes
+```
+
+Minimal example:
 
 ```yaml
 version: 1
@@ -95,15 +143,30 @@ settings:
 ### 2. Run Smooth CLI
 
 ```bash
+# Uses smooth.yml in the current directory by default
 smooth
+
+# Explicit config path
+smooth --config path/to/my-config.yml
+
+# Also enable the REST + WebSocket API on a custom port
+smooth --config smooth.yml --port 8080
 ```
 
-This launches the TUI dashboard. Use keyboard shortcuts to navigate:
+### 3. Flags Reference
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--config` | `smooth.yml` | Path to config file (YAML or TOML) |
+| `--port` | `7700` | REST + WebSocket API port (`0` to disable) |
+| `--log-level` | `info` | Verbosity: `debug`, `info`, `warn`, `error` |
+
+### 4. TUI Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| `↑/k` | Previous process |
-| `↓/j` | Next process |
+| `↑` / `k` | Previous process |
+| `↓` / `j` | Next process |
 | `r` | Restart selected process |
 | `s` | Stop selected process |
 | `S` | Start stopped process |
@@ -243,6 +306,42 @@ processes:
 
 ---
 
+## Distribution
+
+Releases are automated via [GoReleaser](https://goreleaser.com). Builds target macOS (amd64 + arm64), Linux (amd64 + arm64), and Windows (amd64). CGO is disabled so the binaries are fully static and have no external dependencies.
+
+### Creating a Release
+
+```bash
+# Tag the commit
+git tag -a v1.2.3 -m "Release v1.2.3"
+git push origin v1.2.3
+
+# CI picks up the tag and runs GoReleaser automatically via .github/workflows/ci.yml
+```
+
+To test the release build locally without publishing:
+
+```bash
+# Requires goreleaser installed: brew install goreleaser
+goreleaser release --snapshot --clean
+# Output artifacts go to dist/
+```
+
+### Build Matrix
+
+| OS | Arch | Output |
+|----|------|--------|
+| macOS | amd64 | `smooth_<ver>_darwin_amd64.tar.gz` |
+| macOS | arm64 | `smooth_<ver>_darwin_arm64.tar.gz` |
+| Linux | amd64 | `smooth_<ver>_linux_amd64.tar.gz` |
+| Linux | arm64 | `smooth_<ver>_linux_arm64.tar.gz` |
+| Windows | amd64 | `smooth_<ver>_windows_amd64.zip` |
+
+`checksums.txt` is generated alongside each release for verification.
+
+---
+
 ## Development
 
 ### Project Structure
@@ -250,6 +349,10 @@ processes:
 ```
 smooth-cli/
 ├── cmd/smooth/           # CLI entry point
+│   ├── main.go          # TUI + API entry
+│   ├── root.go         # Root command
+│   ├── mcp_serve.go   # MCP stdio mode
+│   └── version.go     # Version info
 ├── internal/
 │   ├── api/              # REST + WebSocket server
 │   ├── attention/        # Regex detector + corpus
@@ -257,33 +360,39 @@ smooth-cli/
 │   ├── config/           # Config parser + hot-reload
 │   ├── domain/           # Shared value types
 │   ├── events/           # Typed pub/sub bus
+│   ├── integration/       # Pipeline tests
 │   ├── logstore/         # Ring buffer + SQLite persistence
 │   ├── mcp/              # MCP server implementation
 │   ├── notify/           # OS notification wrapper
 │   ├── permission/        # Consent flow for config changes
+│   ├── placeholder/       # Placeholder for module detection
 │   ├── store/            # In-memory state + SQLite
 │   ├── supervisor/       # Process lifecycle manager
+│   │   ├── process.go    # Process abstraction
+│   │   ├── resource.go   # Resource limits (Unix)
+│   │   ├── pty_*.go     # PTY handling
+│   │   └── supervisor_*.go # Lifecycle manager
+│   ├── terminal/         # Terminal detection + features
 │   └── tui/              # Bubble Tea UI + panes
 ├── testdata/             # Test fixtures
 ├── ai-docs/              # Specs + implementation plan
+├── Makefile              # Build system
 └── .github/workflows/    # CI/CD
 ```
 
 ### Running Tests
 
 ```bash
-# Unit tests with race detector
-make test-race
-
-# Integration tests
-make test-integration
-
-# Coverage report
-make test-cover
-
-# Lint
-make lint
+make build           # Build smooth binary
+make test           # all unit tests
+make test-race      # unit tests with race detector
+make test-integration  # integration tests (requires full wiring)
+make test-cover     # HTML coverage report → coverage.html
+make lint          # golangci-lint
+make vet            # go vet
 ```
+
+All builds set `CGO_ENABLED=0`; the test suite runs the same way — no C toolchain needed.
 
 ### Architecture
 

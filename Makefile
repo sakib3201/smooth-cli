@@ -1,4 +1,13 @@
-.PHONY: test test-race test-integration lint build clean
+.PHONY: test test-race test-integration lint build build-all clean vet corpus-check
+
+# On Windows (via Git Bash / MSYS2), OS=Windows_NT
+ifeq ($(OS),Windows_NT)
+    EXT := .exe
+else
+    EXT :=
+endif
+
+BINARY := bin/smooth$(EXT)
 
 test:
 	go test ./...
@@ -17,7 +26,7 @@ lint:
 	golangci-lint run ./...
 
 build:
-	go build -o bin/smooth ./cmd/smooth
+	go build -o $(BINARY) ./cmd/smooth
 
 build-all:
 	GOOS=darwin  GOARCH=amd64  go build -o bin/smooth-darwin-amd64  ./cmd/smooth

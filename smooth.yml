@@ -1,0 +1,23 @@
+version: 1
+project: demo
+
+processes:
+  clock:
+    command: powershell
+    args: ["-NoProfile", "-Command", "while($true){ Write-Host ('[clock] ' + (Get-Date -Format 'HH:mm:ss')); Start-Sleep 1 }"]
+    auto_restart: true
+    group: demo
+
+  ping:
+    command: ping
+    args: ["-t", "127.0.0.1"]
+    auto_restart: false
+    group: demo
+
+settings:
+  log_buffer_lines: 1000
+  persist_logs: false
+  notifications: false
+  permission_gating: false
+  mcp:
+    enabled: false

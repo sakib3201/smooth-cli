@@ -22,10 +22,12 @@ var (
 )
 
 var (
-	PaneBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColourBorder)
-	StatusBar  = lipgloss.NewStyle().Background(lipgloss.Color("#1A1B26")).Foreground(ColourGrey).Padding(0, 1)
-	Title      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
-	Selected   = lipgloss.NewStyle().Background(lipgloss.Color("#313244")).Bold(true)
+	PaneBorder        = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColourBorder)
+	PaneBorderFocused = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColourBlue)
+	StatusBar         = lipgloss.NewStyle().Background(lipgloss.Color("#1A1B26")).Foreground(ColourGrey).Padding(0, 1)
+	Title             = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#CDD6F4"))
+	Selected          = lipgloss.NewStyle().Background(lipgloss.Color("#313244")).Bold(true)
+	InputPrompt       = lipgloss.NewStyle().Foreground(ColourCyan).Bold(true)
 )
 
 func StatusSymbol(status string, tick bool) string {

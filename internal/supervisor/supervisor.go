@@ -32,7 +32,7 @@ type supervisor struct {
 	mu        sync.RWMutex
 	processes map[string]*process
 	configs   map[string]processConfig
-	ptys      map[string]*os.File
+	ptys      map[string]io.ReadWriteCloser
 	bus       events.Bus
 	logStore  logstore.Store
 	detector  attention.Detector
@@ -46,7 +46,7 @@ func New(bus events.Bus, logStore logstore.Store, detector attention.Detector) *
 	return &supervisor{
 		processes: make(map[string]*process),
 		configs:   make(map[string]processConfig),
-		ptys:      make(map[string]*os.File),
+		ptys:      make(map[string]io.ReadWriteCloser),
 		bus:       bus,
 		logStore:  logStore,
 		detector:  detector,
@@ -142,14 +142,6 @@ func (s *supervisor) Start(ctx context.Context, name string) error {
 		return fmt.Errorf("supervisor: start pty: %w", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		ptmx.Close()
-		s.mu.Lock()
-		p.status = domain.StatusStopped
-		s.mu.Unlock()
-		return fmt.Errorf("supervisor: start cmd: %w", err)
-	}
-
 	s.mu.Lock()
 	p.pid = cmd.Process.Pid
 	now := time.Now()
@@ -177,11 +169,13 @@ func (s *supervisor) readLoop(name string, r io.Reader, cmd *exec.Cmd) {
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
+			raw := make([]byte, n)
+			copy(raw, buf[:n])
 			line := domain.LogLine{
 				Process:   name,
 				Stream:    domain.Stdout,
 				Timestamp: time.Now(),
-				Raw:       buf[:n],
+				Raw:       raw,
 				Seq:       time.Now().UnixNano(),
 			}
 			if s.logStore != nil {

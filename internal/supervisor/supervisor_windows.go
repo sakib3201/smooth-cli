@@ -1,5 +1,3 @@
-//go:build windows
-
 package supervisor
 
 import (
@@ -9,6 +7,9 @@ import (
 )
 
 func configureSysProcAttr(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000010,
+	}
 }
 
 func killProcessGroup(pid int) error {
